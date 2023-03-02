@@ -33,7 +33,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // create ORT environment in JVM
         ortEnv = OrtEnvironment.getEnvironment()
+
         // Request Camera permission
         if (allPermissionsGranted()) {
             startCamera()
@@ -94,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         backgroundExecutor.shutdown()
+
         ortEnv?.close()
     }
 
@@ -147,15 +151,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Read ort model into a ByteArray, run in background
+    // TODO 但是这里用的是.onnx模型？
     private suspend fun readModel(): ByteArray = withContext(Dispatchers.IO) {
         val modelID =
             if (enableQuantizedModel) R.raw.mobilenetv2_int8 else R.raw.mobilenetv2_fp32
         resources.openRawResource(modelID).readBytes()
     }
 
-    // Create a new ORT session in background
+    // Create a new ORT session with profiling enabled in background
     private suspend fun createOrtSession(): OrtSession? = withContext(Dispatchers.Default) {
-        ortEnv?.createSession(readModel())
+        val ortOptions = OrtSession.SessionOptions()
+        ortOptions.enableProfiling(filesDir.absolutePath + "/result_")
+        // TODO.
+        // Add NnAPI and so on ……
+        ortEnv?.createSession(readModel(), ortOptions)
     }
 
     // Create a new ORT session and then change the ImageAnalysis.Analyzer

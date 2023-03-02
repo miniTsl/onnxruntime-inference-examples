@@ -11,6 +11,7 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import java.util.*
 import kotlin.math.exp
+import kotlin.math.max
 
 
 internal data class Result(
@@ -26,15 +27,15 @@ internal class ORTAnalyzer(
 
     // Get index of top 3 values
     // This is for demo purpose only, there are more efficient algorithms for topK problems
-    private fun getTop3(labelVals: FloatArray): List<Int> {
-        var indices = mutableListOf<Int>()
+    private fun getTop3(labelVars: FloatArray): List<Int> {
+        val indices = mutableListOf<Int>()
         for (k in 0..2) {
             var max: Float = 0.0f
             var idx: Int = 0
-            for (i in 0..labelVals.size - 1) {
-                val label_val = labelVals[i]
-                if (label_val > max && !indices.contains(i)) {
-                    max = label_val
+            for (i in labelVars.indices) {
+                val labelVal = labelVars[i]
+                if (labelVal > max && !indices.contains(i)) {
+                    max = labelVal
                     idx = i
                 }
             }
@@ -47,27 +48,29 @@ internal class ORTAnalyzer(
 
     // Calculate the SoftMax for the input array
     private fun softMax(modelResult: FloatArray): FloatArray {
-        val labelVals = modelResult.copyOf()
-        val max = labelVals.max()
+        val labelVal = modelResult.copyOf()
+        // 这里需要获取array中的最大值，可能是新版的gradle需要重写一下代码
+        labelVal.sort()
+        val max = labelVal.last()
         var sum = 0.0f
 
         // Get the reduced sum
-        for (i in labelVals.indices) {
-            labelVals[i] = exp(labelVals[i] - max!!)
-            sum += labelVals[i]
+        for (i in labelVal.indices) {
+            labelVal[i] = exp(labelVal[i] - max)
+            sum += labelVal[i]
         }
 
         if (sum != 0.0f) {
-            for (i in labelVals.indices) {
-                labelVals[i] /= sum
+            for (i in labelVal.indices) {
+                labelVal[i] /= sum
             }
         }
 
-        return labelVals
+        return labelVal
     }
 
     // Rotate the image of the input bitmap
-    fun Bitmap.rotate(degrees: Float): Bitmap {
+    private fun Bitmap.rotate(degrees: Float): Bitmap {
         val matrix = Matrix().apply { postRotate(degrees) }
         return Bitmap.createBitmap(this, 0, 0, width, height, matrix, true)
     }
